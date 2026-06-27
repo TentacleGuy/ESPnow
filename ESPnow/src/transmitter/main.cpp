@@ -1,7 +1,11 @@
 //ESPnow transmitter
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h> 
+#include <ESP8266WiFi.h>
+#include <esp_now.h>
+#include <ArduinoJson.h>    //für Datenbearbeitung als JSON-Objekt
+
+JsonDocument data;
 
 void showMacAddress(){
     Serial.print("MAC-Address: ");
