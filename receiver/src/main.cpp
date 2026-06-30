@@ -159,6 +159,5 @@ void setup(){
 }
 
 void loop(){
-    Serial.println(lastReceivedData.as<String>());
-    delay(1000);                    // Verzögerung für serielle Verbindung
+
 }

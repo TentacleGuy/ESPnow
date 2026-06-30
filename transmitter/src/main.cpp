@@ -13,18 +13,12 @@ Adafruit_BMP280 bmp;
 
 sensors_event_t humidity, temp;
 
-
-JsonDocument data;
-
 uint8_t receiverAddress[] = {0x20, 0x6E, 0xF1, 0xAA, 0xB6, 0x70};  // MAC-Adresse des Empfängers
 
-typedef struct data {
-    char text[64];
-    int intVal;
-    float floatVal;
-} messageToBeSent;
+JsonDocument jsonData; // JSON-Dokument für die zuletzt empfangenen Daten
 
-messageToBeSent data; 
+String sensorValuesToSent; // String für die zu sendenden Sensordaten
+
 
 void showMacAddress(){
     Serial.print("MAC-Address: ");
@@ -56,18 +50,20 @@ void messageSent(uint8_t *macAddr, uint8_t status) {
 }
 
 void setup(){
+    
     Serial.begin(9600);
     WiFi.mode(WIFI_STA); 
     delay(1000);     
     showMacAddress();
 
-    if (esp_now_init() != ESP_OK) {
+    if (esp_now_init() != 0) {
         Serial.println("ESP-NOW init failed");
         return;
     }
     
     esp_now_set_self_role(ESP_NOW_ROLE_COMBO);
     uint8_t result = esp_now_add_peer(receiverAddress, ESP_NOW_ROLE_COMBO, 0, NULL, 0);
+
     if(result != 0){
         Serial.println("Failed to add peer");
     }
@@ -88,29 +84,29 @@ void setup(){
 }
 
 void loop(){
+    sensors_event_t humidity, temperature;
+    aht.getEvent(&humidity, &temperature); // Get new readings
 
-    // Read data from AHT20
-    aht.getEvent(&humidity, &temp);
+    jsonData["name"] = "Wetterstation"; 
+    jsonData["temperature"] = temperature.temperature;
+    jsonData["humidity"] = humidity.relative_humidity;
+    jsonData["pressure"] = bmp.readPressure() / 100.0F; // Convert to hPa
 
-    // Read data from BMP280
-    float pressure = bmp.readPressure() / 100.0F; // Convert to hPa
+    serializeJson(jsonData, sensorValuesToSent);
 
-
-    char textMsg[] = "Hi, here's my data for you: ";
-    memcpy(&data.text, textMsg, sizeof(textMsg));
-
-    esp_now_send(receiverAddress, (uint8_t *) &data, sizeof(data));
+    esp_now_send(receiverAddress, (uint8_t *) &sensorValuesToSent, sizeof(sensorValuesToSent));
     delay(5000);
 
+    Serial.println("Sent sensor data: " + sensorValuesToSent);
     // Print sensor data to Serial Monitor
     Serial.print("AHT20 - Temperature: ");
-    Serial.print(temp.temperature);
+    Serial.print(jsonData["temperature"].as<float>());
     Serial.print(" °C, Humidity: ");
-    Serial.print(humidity.relative_humidity);
+    Serial.print(jsonData["humidity"].as<float>());
     Serial.println(" %");
 
     Serial.print("BMP280 - Pressure: ");
-    Serial.print(pressure);
+    Serial.print(jsonData["pressure"].as<float>());
     Serial.println(" hPa");
 
 }
